@@ -1,8 +1,25 @@
 import pandas as pd
 import os
+from sklearn.ensemble import RandomForestClassifier
 
-path = os.path.dirname(os.path.abspath(__file__))
 
-df = pd.read_csv(path + "\\star_classification.csv")
+def try_RFC(dataset):
+    rfc = RandomForestClassifier
+    rfc
 
-print(df.head())
+
+def load_data(fpath) -> pd.DataFrame:
+    full_df = pd.read_csv(fpath + "\\star_classification.csv")
+    features = full_df.drop(columns = "class")
+    labels = full_df[["class"]]
+    return features, labels
+
+def main():
+    path = os.path.dirname(os.path.abspath(__file__))
+    X, y = load_data(path)
+    print(X.head())
+    print(y.head())
+
+
+
+main()
