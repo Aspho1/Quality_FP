@@ -1,5 +1,8 @@
 import pandas as pd
+import os
 
-df = pd.read_csv("EIND477\Quality_FP\star_classification.csv")
+path = os.path.dirname(os.path.abspath(__file__))
+
+df = pd.read_csv(path + "\\star_classification.csv")
 
 print(df.head())
