@@ -33,7 +33,7 @@ def pca_f(pca, X, y, third_dimension = None):
     # Represent each predictor by the principle components
     X_r = pca.fit(X).transform(X)
 
-    print(f"Average Silhouette width: {silhouette_score(X_r, y, random_state=1)}")
+    # print(f"Average Silhouette width: {silhouette_score(X_r, y, random_state=1)}")
 
     # Percentage of variance explained for each components
     # print("explained variance ratio (first two components): %s"% str(pca.explained_variance_ratio_))
@@ -66,7 +66,7 @@ def pca_f(pca, X, y, third_dimension = None):
         ax.set_zlabel(f"PCA_3: {100*pca.explained_variance_ratio_[2]:.2f}%")
     plt.legend(loc="best", shadow=False, scatterpoints=1)
     plt.title("PCA of NASA dataset")
-    plt.show()
+
 
 def try_RFC(X, y, rfc):
     # Split the data 80/20: train/test
@@ -94,20 +94,18 @@ def try_RFC(X, y, rfc):
         fpr[i], tpr[i], _ = roc_curve(y_test_bin[:, i], y_pred_prob[:, i])
         roc_auc[i] = auc(fpr[i], tpr[i])
 
-    # Plotting each class
+    # Plot each ROC curve 
     plt.figure()
     for i in range(n_classes):
-        plt.plot(fpr[i], tpr[i], label=f'ROC curve of class {Mapper().to_class(i+1)} (area = {roc_auc[i]:.8f})')
+        plt.plot(fpr[i], tpr[i], label=f'ROC of {Mapper().to_class(i+1)} (AUC = {100*roc_auc[i]:.2f}%)')
 
     plt.plot([0, 1], [0, 1], 'k--')
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('Multi-class ROC -- Classifying stellar objects')
+    plt.title('Multi-class ROC -- Classifying Stellar Objects')
     plt.legend(loc="lower right")
-    plt.show()
-
 
     importances = rfc.feature_importances_
     feature_names = X.columns
@@ -117,18 +115,23 @@ def try_RFC(X, y, rfc):
 
     # Sort the features by importance
     sorted_features = sorted(feature_importances, key=lambda x: x[1], reverse=True)
+    features, importances = zip(*sorted_features)
     print("Feature Importances:")
     for feature, importance in sorted_features:
-        print(f"{feature:>9}: {importance:.4f}")
+        print(f"{feature:<9}: {importance:.4f}")
 
 
+    fig, ax = plt.subplots(layout="constrained")
+    ax.bar(features, importances, color='skyblue')
+    ax.set_xlabel('Importance')
+    ax.set_ylabel('Feature')
+    ax.set_title('Feature Importances in Random Forest Classifier')
 
-    # Calculate Accuracy for the test dataset
+
+    # Calculate performance metrics for the test set
     acc = accuracy_score(y_test, rfc.predict(X_test))
     print(f"Accuracy for single iteration: {acc}")
-
-
-
+    print(f"Overall Average ROCAUC: {np.mean([i for i in roc_auc.values()]):.4f}")
 
 # def make_descriptive_tables(df:pd.DataFrame):
     
@@ -146,6 +149,8 @@ def load_data(fpath, samplesize : int | None = None):
     # Filter out erroneous data
     full_df = full_df[full_df.u>-999].drop(columns=["rerun_ID"])
 
+
+    # Got rid of meta columns. Only have columns which actually report information on the luminance of the stellar object remaining. 
     full_df.drop(columns = ["cam_col", "run_ID", "field_ID", "fiber_ID", "obj_ID", "plate", "MJD", "alpha", "delta", "spec_obj_ID"], inplace=True) #"spec_obj_ID"
 
     # Sample the DataFrame (speed up runtime)
@@ -191,8 +196,12 @@ def main():
     # Create the Random Forest Classifier Model
     rfc = RandomForestClassifier(random_state=1)
 
+    print("Average Silhouette width: 0.0946 (this is low, not well suited for clustering)")
+
     # Apply The RFC to the data.
     try_RFC(X, y, rfc)
+
+    plt.show()
 
     # ----------------------------------------------------------------------------- #
 main()
