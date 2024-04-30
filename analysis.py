@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, roc_curve, auc, silhouette_score
 from sklearn.preprocessing import label_binarize
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, train_test_split
 from sklearn.decomposition import PCA
 
 
@@ -67,6 +67,33 @@ def pca_f(pca, X, y, third_dimension = None):
     plt.legend(loc="best", shadow=False, scatterpoints=1)
     plt.title("PCA of NASA dataset")
 
+def grid_search_parameters(X,y, rfc):
+    rfc
+    print("performing a grid_search for optimal RFC parameters")
+
+    # param_grid = {'n_estimators': [100, 200, 300], 'max_features': ['sqrt', None], 'criterion': ['gini', 'entropy'], 'max_depth': [None, 10, 20], 'min_samples_leaf': [1, 2]}
+    param_grid = {
+        'n_estimators': [100, 200, 300, 400, 500],
+        'max_features': ['sqrt', 'log2', None],
+        'criterion': ['gini', 'entropy'],
+        'max_depth': [None, 10, 20],
+        'min_samples_leaf': [1, 2, 4],
+        'bootstrap': [True, False]
+    }
+    print(f"    Included parameters: {param_grid}")
+    grid_search = GridSearchCV(rfc, param_grid, scoring='f1_micro', cv=4, n_jobs=-1, verbose=1)
+    # grid_search = RandomizedSearchCV(rfc, param_grid, scoring='f1_micro', cv=4, n_jobs=-1, n_iter=50, verbose=1)
+    grid_search.fit(X, y)
+
+    # Get the best model and AUC score
+    best_model = grid_search.best_estimator_
+    best_score = grid_search.best_score_
+
+    # Output the best score
+    print(best_model)
+    print(f"best roc_AUC: {best_score:5f}")
+
+
 
 def try_RFC(X, y, rfc):
     # Split the data 80/20: train/test
@@ -95,17 +122,18 @@ def try_RFC(X, y, rfc):
         roc_auc[i] = auc(fpr[i], tpr[i])
 
     # Plot each ROC curve 
-    plt.figure()
-    for i in range(n_classes):
-        plt.plot(fpr[i], tpr[i], label=f'ROC of {Mapper().to_class(i+1)} (AUC = {100*roc_auc[i]:.2f}%)')
+    fig, ax = plt.subplots(layout="constrained")
 
-    plt.plot([0, 1], [0, 1], 'k--')
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('Multi-class ROC -- Classifying Stellar Objects')
-    plt.legend(loc="lower right")
+    for i in range(n_classes):
+        ax.plot(fpr[i], tpr[i], label=f'ROC of {Mapper().to_class(i+1)} (AUC = {100*roc_auc[i]:.2f}%)')
+
+    ax.plot([0, 1], [0, 1], 'k--')
+    ax.set_xlim([0.0, 1.0])
+    ax.set_ylim([0.0, 1.05])
+    ax.set_xlabel('False Positive Rate')
+    ax.set_ylabel('True Positive Rate')
+    ax.legend()
+    fig.suptitle('Multi-class ROC -- Classifying Stellar Objects')
 
     importances = rfc.feature_importances_
     feature_names = X.columns
@@ -116,10 +144,6 @@ def try_RFC(X, y, rfc):
     # Sort the features by importance
     sorted_features = sorted(feature_importances, key=lambda x: x[1], reverse=True)
     features, importances = zip(*sorted_features)
-    print("Feature Importances:")
-    for feature, importance in sorted_features:
-        print(f"{feature:<9}: {importance:.4f}")
-
 
     fig, ax = plt.subplots(layout="constrained")
     ax.bar(features, importances, color='skyblue')
@@ -147,11 +171,12 @@ def load_data(fpath, samplesize : int | None = None):
     full_df = pd.read_csv(fpath + "\\star_classification.csv")
 
     # Filter out erroneous data
-    full_df = full_df[full_df.u>-999].drop(columns=["rerun_ID"])
+    # full_df = full_df[full_df.u>-999].sample(10000)
+    full_df = full_df[full_df.u>-999]
 
 
     # Got rid of meta columns. Only have columns which actually report information on the luminance of the stellar object remaining. 
-    full_df.drop(columns = ["cam_col", "run_ID", "field_ID", "fiber_ID", "obj_ID", "plate", "MJD", "alpha", "delta", "spec_obj_ID"], inplace=True) #"spec_obj_ID"
+    full_df.drop(columns = ["rerun_ID", "cam_col", "run_ID", "field_ID", "fiber_ID", "obj_ID", "plate", "MJD", "alpha", "delta", "spec_obj_ID"], inplace=True) #"spec_obj_ID"
 
     # Sample the DataFrame (speed up runtime)
     if samplesize != None:
@@ -194,9 +219,17 @@ def main():
     # ----------------------------------------------------------------------------- #
 
     # Create the Random Forest Classifier Model
-    rfc = RandomForestClassifier(random_state=1)
+    # Grid searched for AUC
+    rfc = RandomForestClassifier(criterion='entropy', max_features=None,
+                       min_samples_leaf=2, n_estimators=400, random_state=1)
+    
+    # Grid searched for accuracy NOT DONE YET
+    # rfc = RandomForestClassifier(random_state=1)
 
     print("Average Silhouette width: 0.0946 (this is low, not well suited for clustering)")
+
+    # Gridsearch Parameters
+    # grid_search_parameters(X,y,rfc)
 
     # Apply The RFC to the data.
     try_RFC(X, y, rfc)
